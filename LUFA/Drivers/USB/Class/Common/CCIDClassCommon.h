@@ -51,7 +51,6 @@
 #ifndef _CCID_CLASS_COMMON_H_
 #define _CCID_CLASS_COMMON_H_
 
-
 	/* Includes: */
 		#include "../../Core/StdDescriptors.h"
 
@@ -82,8 +81,8 @@
 		#define CCID_COMMANDSTATUS_FAILED					(1 << 6)
 		#define CCID_COMMANDSTATUS_TIMEEXTENSIONREQUESTED	(1 << 7)
 
-		#define CCID_ERROR_NOERROR			0
-		#define CCID_ERROR_SLOTNOTFOUND		5
+		#define CCID_ERROR_NOERROR							0
+		#define CCID_ERROR_SLOTNOTFOUND						5
 
 
 	/* Enums: */
@@ -92,35 +91,34 @@
 		 */
 		enum CCID_Descriptor_ClassSubclassProtocol_t
 		{
-			CCID_CSCP_CCIDClass             = 0x0b, /**< Descriptor Class value indicating that the device or interface
+			CCID_CSCP_CCIDClass				= 0x0B, /**< Descriptor Class value indicating that the device or interface
 			                                         *   belongs to the CCID class.
 			                                         */
-			CCID_CSCP_NoSpecificSubclass     = 0x00, /**< Descriptor Subclass value indicating that the device or interface
+			CCID_CSCP_NoSpecificSubclass	= 0x00, /**< Descriptor Subclass value indicating that the device or interface
 			                                         *   belongs to no specific subclass of the CCID class.
 			                                         */
-			CCID_CSCP_NoSpecificProtocol     = 0x00, /**< Descriptor Protocol value indicating that the device or interface
+			CCID_CSCP_NoSpecificProtocol	= 0x00, /**< Descriptor Protocol value indicating that the device or interface
 			                                         *   belongs to no specific protocol of the CCID class.
 			                                         */
 		};
 
-		/** Enum for possible bulk messages between PC and Reader */
+		/** Enum for possible CCID class bulk message types sent between PC and Reader */
 		enum CCID_BulkOutMessages_t
 		{
-			CCID_PC_to_RDR_IccPowerOn  			= 0x62,
-			CCID_PC_to_RDR_IccPowerOff 			= 0x63,
-			CCID_PC_to_RDR_GetSlotStatus  		= 0x65,
-			CCID_PC_to_RDR_XfrBlock			= 0x6f,
-			CCID_PC_to_RDR_GetParameters			= 0x6c,
-			CCID_PC_to_RDR_ResetParameters		= 0x6d,
-			CCID_PC_to_RDR_SetParameters         	= 0x61,
-			CCID_PC_to_RDR_Escape			= 0x6b,
+			CCID_PC_to_RDR_IccPowerOn		= 0x62,
+			CCID_PC_to_RDR_IccPowerOff 		= 0x63,
+			CCID_PC_to_RDR_GetSlotStatus	= 0x65,
+			CCID_PC_to_RDR_XfrBlock			= 0x6F,
+			CCID_PC_to_RDR_GetParameters	= 0x6C,
+			CCID_PC_to_RDR_ResetParameters	= 0x6D,
+			CCID_PC_to_RDR_SetParameters   	= 0x61,
+			CCID_PC_to_RDR_Escape			= 0x6B,
 
-			CCID_RDR_to_PC_DataBlock   			= 0x80,
-			CCID_RDR_to_PC_SlotStatus  			= 0x81
-
+			CCID_RDR_to_PC_DataBlock   		= 0x80,
+			CCID_RDR_to_PC_SlotStatus  		= 0x81
 		};
 
-		/** Enum for the Mass Storage class specific control requests that can be issued by the USB bus host. */
+		/** Enum for the CCID class specific control requests that can be issued by the USB bus host. */
 		enum CCID_ClassRequests_t
 		{
 			CCID_ABORT                  	= 0x1,
@@ -133,60 +131,57 @@
 		{
 			USB_Descriptor_Header_t Header; /**< Regular descriptor header containing the descriptor's type and length. */
 
-			uint16_t                CCID;
-			uint8_t					MaxSlotIndex;
-			uint8_t					VoltageSupport;
-			uint32_t				Protocols;
-			uint32_t				DefaultClock;
-			uint32_t				MaximumClock;
-			uint8_t					NumClockSupported;
-			uint32_t				DataRate;
-			uint32_t				MaxDataRate;
-			uint8_t					NumDataRatesSupported;
-			uint32_t				MaxIFSD;
-			uint32_t				SynchProtocols;
-			uint32_t				Mechanical;
-			uint32_t				Features;
-			uint32_t				MaxCCIDMessageLength;
-			uint8_t					ClassGetResponse;
-			uint8_t					ClassEnvelope;
-			uint16_t				LcdLayout;
-			uint8_t					PINSupport;
-			uint8_t					MaxCCIDBusySlots;
-
+			uint16_t	CCID;
+			uint8_t		MaxSlotIndex;
+			uint8_t		VoltageSupport;
+			uint32_t	Protocols;
+			uint32_t	DefaultClock;
+			uint32_t	MaximumClock;
+			uint8_t		NumClockSupported;
+			uint32_t	DataRate;
+			uint32_t	MaxDataRate;
+			uint8_t		NumDataRatesSupported;
+			uint32_t	MaxIFSD;
+			uint32_t	SynchProtocols;
+			uint32_t	Mechanical;
+			uint32_t	Features;
+			uint32_t	MaxCCIDMessageLength;
+			uint8_t		ClassGetResponse;
+			uint8_t		ClassEnvelope;
+			uint16_t	LcdLayout;
+			uint8_t		PINSupport;
+			uint8_t		MaxCCIDBusySlots;
 		} ATTR_PACKED USB_CCID_Descriptor_t;
 
 		/** Enum for a common bulk message header. */
 		typedef struct
 		{
-			uint8_t MessageType;
-			uint32_t Length;
-			uint8_t Slot;
-			uint8_t Seq;
-
+			uint8_t		MessageType;
+			uint32_t 	Length;
+			uint8_t		Slot;
+			uint8_t		Seq;
 		} ATTR_PACKED USB_CCID_BulkMessage_Header_t;
 
 		typedef struct
 		{
 			USB_CCID_BulkMessage_Header_t CCIDHeader;
-
 		} ATTR_PACKED USB_CCID_PC_to_RDR_GetSlotStatus_t;
 
 		typedef struct
 		{
 			USB_CCID_BulkMessage_Header_t CCIDHeader;
-			uint8_t Status;
-			uint8_t Error;
-			uint8_t ChainParam;
-			uint8_t Data[0];
+			uint8_t		Status;
+			uint8_t		Error;
+			uint8_t		ChainParam;
+			uint8_t		Data[0];
 		} ATTR_PACKED USB_CCID_RDR_to_PC_DataBlock_t;
 
 		typedef struct
 		{
 			USB_CCID_BulkMessage_Header_t CCIDHeader;
-			uint8_t Status;
-			uint8_t Error;
-			uint8_t ClockStatus;
+			uint8_t		Status;
+			uint8_t		Error;
+			uint8_t		ClockStatus;
 		} ATTR_PACKED USB_CCID_RDR_to_PC_SlotStatus_t;
 
 	/* Disable C linkage for C++ Compilers: */

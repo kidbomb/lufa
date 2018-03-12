@@ -1,13 +1,13 @@
 /*
              LUFA Library
-     Copyright (C) Dean Camera, 2017.
+     Copyright (C) Dean Camera, 2018.
 
   dean [at] fourwalledcubicle [dot] com
            www.lufa-lib.org
 */
 
 /*
-  Copyright 2017  Dean Camera (dean [at] fourwalledcubicle [dot] com)
+  Copyright 2018  Dean Camera (dean [at] fourwalledcubicle [dot] com)
   Copyright 2018  Filipe Rodrigues (filipepazrodrigues [at] gmail [dot] com)
 
   Permission to use, copy, modify, distribute, and sell this
@@ -45,8 +45,6 @@
  */
 const USB_Descriptor_Device_t PROGMEM DeviceDescriptor =
 {
-	//It  is  a  standard  device  descriptor  as  per  Chapter  9,  “USB  Device  Framework,”  in  the   Universal Serial Bus Specification.
-	//It does not contain class-specific information.  
 	.Header                 = {.Size = sizeof(USB_Descriptor_Device_t), .Type = DTYPE_Device},
 
 	.USBSpecification       = VERSION_BCD(1,1,0),
@@ -57,7 +55,7 @@ const USB_Descriptor_Device_t PROGMEM DeviceDescriptor =
 	.Endpoint0Size          = FIXED_CONTROL_ENDPOINT_SIZE,
 
 	.VendorID               = 0x03EB,
-	.ProductID              = 0x206D,
+	.ProductID              = 0x206E,
 	.ReleaseNumber          = VERSION_BCD(0,0,1),
 
 	.ManufacturerStrIndex   = STRING_ID_Manufacturer,
@@ -88,6 +86,7 @@ const USB_Descriptor_Configuration_t PROGMEM ConfigurationDescriptor =
 
 			.MaxPowerConsumption      = USB_CONFIG_POWER_MA(100)
 		},
+
 		.CCID_Interface =
 		{
 			.Header                 = {.Size = sizeof(USB_Descriptor_Interface_t), .Type = DTYPE_Interface},
@@ -97,12 +96,13 @@ const USB_Descriptor_Configuration_t PROGMEM ConfigurationDescriptor =
 
 			.TotalEndpoints         = 2,
 
-			.Class                  = CCID_CSCP_CCIDClass, 
+			.Class                  = CCID_CSCP_CCIDClass,
 			.SubClass               = CCID_CSCP_NoSpecificSubclass,
 			.Protocol               = CCID_CSCP_NoSpecificProtocol,
 
 			.InterfaceStrIndex      = NO_DESCRIPTOR
 		},
+
 		.CCID_SmartCard =
 		{
 			.Header                 = {.Size = sizeof(USB_CCID_Descriptor_t), .Type = DTYPE_FunctionalDescriptor},
@@ -110,12 +110,12 @@ const USB_Descriptor_Configuration_t PROGMEM ConfigurationDescriptor =
 			.MaxSlotIndex			= 0x00,
 			.VoltageSupport			= CCID_VOLTAGESUPPORT_5V,
 			.Protocols				= CCID_PROTOCOL_T1,
-			.DefaultClock			= 16000, //16MHz
-			.MaximumClock			= 16000, //16MHz
+			.DefaultClock			= 16000, // 16MHz
+			.MaximumClock			= 16000, // 16MHz
 			.NumClockSupported		= 0,
 			.DataRate				= 307200,
 			.MaxDataRate			= 307200,
-			.NumDataRatesSupported	= 0, 
+			.NumDataRatesSupported	= 0,
 			.MaxIFSD				= 2038,
 			.SynchProtocols			= 0,
 			.Mechanical				= 0,
@@ -126,8 +126,9 @@ const USB_Descriptor_Configuration_t PROGMEM ConfigurationDescriptor =
 			.LcdLayout				= 0,
 			.PINSupport				= 0,
 			.MaxCCIDBusySlots		= 1
-			
+
 		},
+
 		.CCID_BulkInEndpoint =
 		{
 			.Header                 = {.Size = sizeof(USB_Descriptor_Endpoint_t), .Type = DTYPE_Endpoint},
@@ -142,7 +143,7 @@ const USB_Descriptor_Configuration_t PROGMEM ConfigurationDescriptor =
 		{
 			.Header                 = {.Size = sizeof(USB_Descriptor_Endpoint_t), .Type = DTYPE_Endpoint},
 
-			.EndpointAddress        = CCID_OUT_EPADDR , 
+			.EndpointAddress        = CCID_OUT_EPADDR ,
 			.Attributes             = EP_TYPE_BULK,
 			.EndpointSize           = CCID_EPSIZE,
 			.PollingIntervalMS      = 0x05
@@ -159,7 +160,7 @@ const USB_Descriptor_String_t PROGMEM LanguageString = USB_STRING_DESCRIPTOR_ARR
  *  form, and is read out upon request by the host when the appropriate string ID is requested, listed in the Device
  *  Descriptor.
  */
-const USB_Descriptor_String_t PROGMEM ManufacturerString = USB_STRING_DESCRIPTOR(L"CCID Manufacturer");
+const USB_Descriptor_String_t PROGMEM ManufacturerString = USB_STRING_DESCRIPTOR(L"Dean Camera");
 
 /** Product descriptor string. This is a Unicode string containing the product's details in human readable form,
  *  and is read out upon request by the host when the appropriate string ID is requested, listed in the Device

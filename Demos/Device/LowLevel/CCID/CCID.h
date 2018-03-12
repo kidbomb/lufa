@@ -1,13 +1,13 @@
 /*
              LUFA Library
-     Copyright (C) Dean Camera, 2017.
+     Copyright (C) Dean Camera, 2018.
 
   dean [at] fourwalledcubicle [dot] com
            www.lufa-lib.org
 */
 
 /*
-  Copyright 2017  Dean Camera (dean [at] fourwalledcubicle [dot] com)
+  Copyright 2018  Dean Camera (dean [at] fourwalledcubicle [dot] com)
   Copyright 2018  Filipe Rodrigues (filipepazrodrigues [at] gmail [dot] com)
 
   Permission to use, copy, modify, distribute, and sell this
@@ -42,6 +42,7 @@
 		#include <avr/wdt.h>
 		#include <avr/power.h>
 		#include <avr/interrupt.h>
+		#include <stdlib.h>
 
 		#include "Descriptors.h"
 
@@ -66,16 +67,17 @@
 		#define LEDMASK_USB_BUSY           LEDS_LED2
 
 	/* Function Prototypes: */
-		void SetupHardware(void);
+		void	SetupHardware(void);
+		void	CCID_Task(void);
 
-		void EVENT_USB_Device_Connect(void);
-		void EVENT_USB_Device_Disconnect(void);
-		void EVENT_USB_Device_ConfigurationChanged(void);
-		void EVENT_USB_Device_ControlRequest(void);
+		uint8_t CCID_IccPowerOff(uint8_t slot, uint8_t *error);
+		uint8_t	CCID_GetSlotStatus(uint8_t slot, uint8_t *error);
+		bool	CCID_CheckStatusNoError(int status);
 
-	/* Callbacks */
-		uint8_t CALLBACK_CCID_IccPowerOff(uint8_t slot, uint8_t *error);
-		uint8_t CALLBACK_CCID_GetSlotStatus(uint8_t slot, uint8_t *error);
+		void	EVENT_USB_Device_Connect(void);
+		void	EVENT_USB_Device_Disconnect(void);
+		void	EVENT_USB_Device_ConfigurationChanged(void);
+		void	EVENT_USB_Device_ControlRequest(void);
 
 #endif
 

@@ -1,13 +1,13 @@
 /*
              LUFA Library
-     Copyright (C) Dean Camera, 2017.
+     Copyright (C) Dean Camera, 2018.
 
   dean [at] fourwalledcubicle [dot] com
            www.lufa-lib.org
 */
 
 /*
-  Copyright 2017  Dean Camera (dean [at] fourwalledcubicle [dot] com)
+  Copyright 2018  Dean Camera (dean [at] fourwalledcubicle [dot] com)
   Copyright 2018  Filipe Rodrigues (filipepazrodrigues [at] gmail [dot] com)
 
   Permission to use, copy, modify, distribute, and sell this
@@ -34,173 +34,22 @@
  *  Main source file for the CCID demo. This file contains the main tasks of the demo and
  *  is responsible for the initial application hardware configuration.
  *
- * \warning This code is not production ready and should not by any means be considered safe.
+ *  \warning
+ *  LUFA is not a secure USB stack, and has not undergone, not is it expected to pass, any
+ *  form of security audit. The CCID class here is presented as-is and is intended for
+ *  research purposes only, and *should not* be used in a security critical application
+ *  under any circumstances.
+ *
+ *  \warning
+ *  This code is not production ready and should not by any means be considered safe.
  *  If you plan to integrate it into your application, you should seriously consider strong
- *  encryption algorithms or a secure microprocessor. Since Atmel AVR microprocessors do not 
+ *  encryption algorithms or a secure microprocessor. Since Atmel AVR microprocessors do not
  *  have any security requirement (therefore they don't offer any known protection against
  *  side channel attacks or fault injection) a secure microprocessor is the best option.
  */
 
 #define  INCLUDE_FROM_CCID_C
 #include "CCID.h"
-#include <stdlib.h>
-
-uint8_t CALLBACK_CCID_IccPowerOff(uint8_t slot, uint8_t *error) {
-	if(slot == 0) {
-		*error = CCID_ERROR_NOERROR;
-		return CCID_COMMANDSTATUS_PROCESSEDWITHOUTERROR | CCID_ICCSTATUS_NOICCPRESENT;
-	} else {
-		*error = CCID_ERROR_SLOTNOTFOUND;
-                return CCID_COMMANDSTATUS_FAILED | CCID_ICCSTATUS_NOICCPRESENT;
-	}
-}
-
-uint8_t CALLBACK_CCID_GetSlotStatus(uint8_t slot, uint8_t *error) {
-	if(slot == 0) {
-		*error = CCID_ERROR_NOERROR;
-		return CCID_COMMANDSTATUS_PROCESSEDWITHOUTERROR | CCID_ICCSTATUS_PRESENTANDACTIVE;
-	} else {
-		 *error = CCID_ERROR_SLOTNOTFOUND;
-                return CCID_COMMANDSTATUS_FAILED | CCID_ICCSTATUS_NOICCPRESENT;
-	}
-}
-
-bool CCID_NoError(int status) {
-	return (status && 0xC0) == 0x0;
-}
-void CCID_Task() {
-
-	Endpoint_SelectEndpoint(CCID_OUT_EPADDR);
-
-	uint8_t BlockBuffer[0x20];
-
-	if (Endpoint_IsOUTReceived())
-	{
-		
-		USB_CCID_BulkMessage_Header_t CCIDHeader;
-		CCIDHeader.MessageType = Endpoint_Read_8();
-		CCIDHeader.Length = Endpoint_Read_32_LE();
-		CCIDHeader.Slot = Endpoint_Read_8();
-		CCIDHeader.Seq = Endpoint_Read_8();
-	
-		uint8_t Status;
-		uint8_t Error = CCID_ERROR_NOERROR;
-
-		if(CCIDHeader.MessageType == CCID_PC_to_RDR_IccPowerOn) {
-
-			uint8_t AtrLength;
-
-			uint8_t AtrBuffer[17] = {0x3B, 0x8C, 0x80, 0x01, 0x59, 0x75, 0x62, 0x69, 0x6B, 0x65, 0x79, 0x4E, 0x45, 0x4F, 0x72, 0x33, 0x58};
-			AtrLength = 17;
-			Status = CCID_COMMANDSTATUS_PROCESSEDWITHOUTERROR | CCID_ICCSTATUS_PRESENTANDACTIVE;
-
-			USB_CCID_RDR_to_PC_DataBlock_t *ResponseATR = (USB_CCID_RDR_to_PC_DataBlock_t *) &BlockBuffer;
-
-			ResponseATR->CCIDHeader.MessageType = CCID_RDR_to_PC_DataBlock;
-			ResponseATR->CCIDHeader.Slot = CCIDHeader.Slot;
-			ResponseATR->CCIDHeader.Seq = CCIDHeader.Seq;
-			ResponseATR->ChainParam = 0;
-
-			if(CCID_NoError(Status)) {
-				ResponseATR->CCIDHeader.Length = AtrLength;
-				memcpy(&ResponseATR->Data, AtrBuffer, sizeof(uint8_t) * AtrLength);
-				
-			} else {
-				AtrLength = 0;
-			}
-			
-			ResponseATR->Status = Status;
-			ResponseATR->Error = Error;
-
-			Endpoint_ClearOUT();
-
-			Endpoint_SelectEndpoint(CCID_IN_EPADDR);
-			Endpoint_Write_Stream_LE(ResponseATR, sizeof(USB_CCID_RDR_to_PC_DataBlock_t)  + (AtrLength * sizeof(uint8_t)), NULL);
-			Endpoint_ClearIN();
-		} else if(CCIDHeader.MessageType == CCID_PC_to_RDR_IccPowerOff) {
-			USB_CCID_RDR_to_PC_SlotStatus_t ResponsePowerOff;
-			ResponsePowerOff.CCIDHeader.MessageType = CCID_RDR_to_PC_SlotStatus;
-			ResponsePowerOff.CCIDHeader.Length = 0;
-			ResponsePowerOff.CCIDHeader.Slot = CCIDHeader.Slot;
-			ResponsePowerOff.CCIDHeader.Seq = CCIDHeader.Seq;
-
-			ResponsePowerOff.ClockStatus = 0;
-
-			Status = CALLBACK_CCID_IccPowerOff(CCIDHeader.Slot, &Error);
-
-			ResponsePowerOff.Status = Status;
-			ResponsePowerOff.Error = Error;
-
-			Endpoint_ClearOUT();
-
-			Endpoint_SelectEndpoint(CCID_IN_EPADDR);
-			Endpoint_Write_Stream_LE(&ResponsePowerOff, sizeof(USB_CCID_RDR_to_PC_SlotStatus_t), NULL);
-			Endpoint_ClearIN();
-		} else if(CCIDHeader.MessageType == CCID_PC_to_RDR_GetSlotStatus) {
-			USB_CCID_RDR_to_PC_SlotStatus_t ResponseSlotStatus;
-			ResponseSlotStatus.CCIDHeader.MessageType = CCID_RDR_to_PC_SlotStatus;
-			ResponseSlotStatus.CCIDHeader.Length = 0;
-			ResponseSlotStatus.CCIDHeader.Slot = CCIDHeader.Slot;
-			ResponseSlotStatus.CCIDHeader.Seq = CCIDHeader.Seq;
-
-			ResponseSlotStatus.ClockStatus = 0;
-
-			Status = CALLBACK_CCID_GetSlotStatus(CCIDHeader.Slot, &Error);
-
-			ResponseSlotStatus.Status = Status;
-			ResponseSlotStatus.Error = Error;
-
-			Endpoint_ClearOUT();
-
-			Endpoint_SelectEndpoint(CCID_IN_EPADDR);
-			Endpoint_Write_Stream_LE(&ResponseSlotStatus, sizeof(USB_CCID_RDR_to_PC_SlotStatus_t), NULL);
-			Endpoint_ClearIN();
-
-		} else if(CCIDHeader.MessageType == CCID_PC_to_RDR_XfrBlock) {
-			uint8_t Bwi = Endpoint_Read_8();
-			uint16_t LevelParameter = Endpoint_Read_16_LE();
-
-			uint8_t ReceivedBuffer[0x4];
-			uint8_t SendBuffer[0x2] = {0x90, 0x00};
-			uint8_t SendLength = sizeof(SendBuffer);
-			Status = CCID_COMMANDSTATUS_PROCESSEDWITHOUTERROR | CCID_ICCSTATUS_PRESENTANDACTIVE;
-
-			USB_CCID_RDR_to_PC_DataBlock_t * ResponseBlock = (USB_CCID_RDR_to_PC_DataBlock_t *) &BlockBuffer;
-			ResponseBlock->CCIDHeader.MessageType = CCID_RDR_to_PC_DataBlock;
-			ResponseBlock->CCIDHeader.Slot = CCIDHeader.Slot;
-			ResponseBlock->CCIDHeader.Seq = CCIDHeader.Seq;
-			ResponseBlock->ChainParam = 0;
-
-			Endpoint_Read_Stream_LE(ReceivedBuffer, sizeof(ReceivedBuffer), NULL);
-		
-			if(CCID_NoError(Status)) {
-				ResponseBlock->CCIDHeader.Length = SendLength;
-				memcpy(&ResponseBlock->Data, SendBuffer, sizeof(uint8_t) * SendLength);
-
-			} else {
-				SendLength = 0;
-			}
-
-			ResponseBlock->Status = Status;
-			ResponseBlock->Error = Error;
-
-			Endpoint_ClearOUT();
-
-			Endpoint_SelectEndpoint(CCID_IN_EPADDR);
-			Endpoint_Write_Stream_LE(ResponseBlock, sizeof(USB_CCID_RDR_to_PC_DataBlock_t) + (SendLength * sizeof(uint8_t)), NULL);
-			Endpoint_ClearIN();
-			
-		} else {
-			//replying back with zeroes
-
-			uint8_t SentData[0x20];
-			memset(SentData, 0x00, sizeof(0x20));
-			Endpoint_SelectEndpoint(CCID_IN_EPADDR);
-			Endpoint_Write_Stream_LE(&SentData, 0x20, NULL);
-			Endpoint_ClearIN();
-		}
-	}
-}
 
 
 /** Main program entry point. This routine configures the hardware required by the application, then
@@ -284,12 +133,6 @@ void EVENT_USB_Device_ConfigurationChanged(void)
  */
 void EVENT_USB_Device_ControlRequest(void)
 {
-    if (!(Endpoint_IsSETUPReceived()))
-		return;
-
-	if (USB_ControlRequest.wIndex != INTERFACE_ID_CCID)
-     	return;
-
 	switch (USB_ControlRequest.bRequest)
 	{
 		case CCID_ABORT:
@@ -301,5 +144,197 @@ void EVENT_USB_Device_ControlRequest(void)
 		case CCID_GET_DATA_RATES:
 			//
 			break;
-	}                                                                    
+	}
+}
+
+uint8_t CCID_IccPowerOff(uint8_t slot,
+                         uint8_t *error)
+{
+	if (slot == 0)
+	{
+		*error = CCID_ERROR_NOERROR;
+		return CCID_COMMANDSTATUS_PROCESSEDWITHOUTERROR | CCID_ICCSTATUS_NOICCPRESENT;
+	}
+	else
+	{
+		*error = CCID_ERROR_SLOTNOTFOUND;
+		return CCID_COMMANDSTATUS_FAILED | CCID_ICCSTATUS_NOICCPRESENT;
+	}
+}
+
+uint8_t CCID_GetSlotStatus(uint8_t slot,
+                           uint8_t *error)
+{
+	if (slot == 0)
+	{
+		*error = CCID_ERROR_NOERROR;
+		return CCID_COMMANDSTATUS_PROCESSEDWITHOUTERROR | CCID_ICCSTATUS_PRESENTANDACTIVE;
+	}
+	else
+	{
+		*error = CCID_ERROR_SLOTNOTFOUND;
+		return CCID_COMMANDSTATUS_FAILED | CCID_ICCSTATUS_NOICCPRESENT;
+	}
+}
+
+bool CCID_CheckStatusNoError(int status)
+{
+	return (status && 0xC0) == 0x0;
+}
+
+void CCID_Task(void)
+{
+	Endpoint_SelectEndpoint(CCID_OUT_EPADDR);
+
+	uint8_t BlockBuffer[0x20];
+
+	if (Endpoint_IsOUTReceived())
+	{
+		USB_CCID_BulkMessage_Header_t CCIDHeader;
+		CCIDHeader.MessageType = Endpoint_Read_8();
+		CCIDHeader.Length      = Endpoint_Read_32_LE();
+		CCIDHeader.Slot        = Endpoint_Read_8();
+		CCIDHeader.Seq         = Endpoint_Read_8();
+
+		uint8_t Status;
+		uint8_t Error = CCID_ERROR_NOERROR;
+
+		switch (CCIDHeader.MessageType)
+		{
+			case CCID_PC_to_RDR_IccPowerOn:
+			{
+				uint8_t AttrBuffer[17] = {0x3B, 0x8C, 0x80, 0x01, 0x59, 0x75, 0x62, 0x69, 0x6B, 0x65, 0x79, 0x4E, 0x45, 0x4F, 0x72, 0x33, 0x58};
+				uint8_t AttrLength     = sizeof(AttrBuffer);
+
+				USB_CCID_RDR_to_PC_DataBlock_t* ResponseATR = (USB_CCID_RDR_to_PC_DataBlock_t*)&BlockBuffer;
+
+				ResponseATR->CCIDHeader.MessageType = CCID_RDR_to_PC_DataBlock;
+				ResponseATR->CCIDHeader.Slot        = CCIDHeader.Slot;
+				ResponseATR->CCIDHeader.Seq         = CCIDHeader.Seq;
+				ResponseATR->ChainParam             = 0;
+
+				Status = CCID_COMMANDSTATUS_PROCESSEDWITHOUTERROR | CCID_ICCSTATUS_PRESENTANDACTIVE;
+
+				if (CCID_CheckStatusNoError(Status))
+				{
+					ResponseATR->CCIDHeader.Length = AttrLength;
+					memcpy(&ResponseATR->Data, AttrBuffer, AttrLength);
+				}
+				else
+				{
+					AttrLength = 0;
+				}
+
+				ResponseATR->Status = Status;
+				ResponseATR->Error  = Error;
+
+				Endpoint_ClearOUT();
+
+				Endpoint_SelectEndpoint(CCID_IN_EPADDR);
+				Endpoint_Write_Stream_LE(ResponseATR, sizeof(USB_CCID_RDR_to_PC_DataBlock_t) + AttrLength, NULL);
+				Endpoint_ClearIN();
+				break;
+			}
+
+			case CCID_PC_to_RDR_IccPowerOff:
+			{
+				USB_CCID_RDR_to_PC_SlotStatus_t ResponsePowerOff;
+				ResponsePowerOff.CCIDHeader.MessageType = CCID_RDR_to_PC_SlotStatus;
+				ResponsePowerOff.CCIDHeader.Length      = 0;
+				ResponsePowerOff.CCIDHeader.Slot        = CCIDHeader.Slot;
+				ResponsePowerOff.CCIDHeader.Seq         = CCIDHeader.Seq;
+
+				ResponsePowerOff.ClockStatus = 0;
+
+				Status = CCID_IccPowerOff(CCIDHeader.Slot, &Error);
+
+				ResponsePowerOff.Status = Status;
+				ResponsePowerOff.Error  = Error;
+
+				Endpoint_ClearOUT();
+
+				Endpoint_SelectEndpoint(CCID_IN_EPADDR);
+				Endpoint_Write_Stream_LE(&ResponsePowerOff, sizeof(USB_CCID_RDR_to_PC_SlotStatus_t), NULL);
+				Endpoint_ClearIN();
+				break;
+			}
+
+			case CCID_PC_to_RDR_GetSlotStatus:
+			{
+				USB_CCID_RDR_to_PC_SlotStatus_t ResponseSlotStatus;
+				ResponseSlotStatus.CCIDHeader.MessageType = CCID_RDR_to_PC_SlotStatus;
+				ResponseSlotStatus.CCIDHeader.Length      = 0;
+				ResponseSlotStatus.CCIDHeader.Slot        = CCIDHeader.Slot;
+				ResponseSlotStatus.CCIDHeader.Seq         = CCIDHeader.Seq;
+
+				ResponseSlotStatus.ClockStatus = 0;
+
+				Status = CCID_GetSlotStatus(CCIDHeader.Slot, &Error);
+
+				ResponseSlotStatus.Status = Status;
+				ResponseSlotStatus.Error  = Error;
+
+				Endpoint_ClearOUT();
+
+				Endpoint_SelectEndpoint(CCID_IN_EPADDR);
+				Endpoint_Write_Stream_LE(&ResponseSlotStatus, sizeof(USB_CCID_RDR_to_PC_SlotStatus_t), NULL);
+				Endpoint_ClearIN();
+				break;
+			}
+
+			case CCID_PC_to_RDR_XfrBlock:
+			{
+				uint8_t  Bwi            = Endpoint_Read_8();
+				uint16_t LevelParameter = Endpoint_Read_16_LE();
+				uint8_t  ReceivedBuffer[0x4];
+
+				(void)Bwi;
+				(void)LevelParameter;
+
+				Endpoint_Read_Stream_LE(ReceivedBuffer, sizeof(ReceivedBuffer), NULL);
+
+				uint8_t  SendBuffer[0x2] = {0x90, 0x00};
+				uint8_t  SendLength      = sizeof(SendBuffer);
+
+				USB_CCID_RDR_to_PC_DataBlock_t* ResponseBlock = (USB_CCID_RDR_to_PC_DataBlock_t*)&BlockBuffer;
+				ResponseBlock->CCIDHeader.MessageType = CCID_RDR_to_PC_DataBlock;
+				ResponseBlock->CCIDHeader.Slot        = CCIDHeader.Slot;
+				ResponseBlock->CCIDHeader.Seq         = CCIDHeader.Seq;
+
+				ResponseBlock->ChainParam = 0;
+
+				Status = CCID_COMMANDSTATUS_PROCESSEDWITHOUTERROR | CCID_ICCSTATUS_PRESENTANDACTIVE;
+
+				if (CCID_CheckStatusNoError(Status))
+				{
+					ResponseBlock->CCIDHeader.Length = SendLength;
+					memcpy(&ResponseBlock->Data, SendBuffer, SendLength);
+				}
+				else
+				{
+					SendLength = 0;
+				}
+
+				ResponseBlock->Status = Status;
+				ResponseBlock->Error  = Error;
+
+				Endpoint_ClearOUT();
+
+				Endpoint_SelectEndpoint(CCID_IN_EPADDR);
+				Endpoint_Write_Stream_LE(ResponseBlock, sizeof(USB_CCID_RDR_to_PC_DataBlock_t) + SendLength, NULL);
+				Endpoint_ClearIN();
+				break;
+			}
+
+			default:
+			{
+				uint8_t SentData[0x20];
+				memset(SentData, 0x00, sizeof(SentData));
+
+				Endpoint_SelectEndpoint(CCID_IN_EPADDR);
+				Endpoint_Write_Stream_LE(&SentData, sizeof(SentData), NULL);
+				Endpoint_ClearIN();
+			}
+		}
+	}
 }

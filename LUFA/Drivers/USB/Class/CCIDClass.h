@@ -55,8 +55,10 @@
  *  This module is designed to simplify the user code by exposing only the required interface needed to interface with
  *  Hosts or Devices using the USB CCID Class.
  *
- *  \note The USB CCID class is actually a special case of the regular Audio class, thus this module depends on
- *        structure definitions from the \ref Group_USBClassAudioDevice class driver module.
+ *  \warning
+ *  LUFA is not a secure USB stack, and has not undergone, not is it expected to pass, any form of security audit. The
+ *  CCID class here is presented as-is and is intended for research purposes only, and *should not* be used in a security
+ *  critical application under any circumstances.
  *
  *  @{
  */
