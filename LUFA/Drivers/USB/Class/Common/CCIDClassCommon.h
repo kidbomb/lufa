@@ -1,13 +1,13 @@
 /*
              LUFA Library
-     Copyright (C) Dean Camera, 2017.
+     Copyright (C) Dean Camera, 2018.
 
   dean [at] fourwalledcubicle [dot] com
            www.lufa-lib.org
 */
 
 /*
-  Copyright 2017  Dean Camera (dean [at] fourwalledcubicle [dot] com)
+  Copyright 2018  Dean Camera (dean [at] fourwalledcubicle [dot] com)
   Copyright 2018  Filipe Rodrigues (filipepazrodrigues [at] gmail [dot] com)
 
   Permission to use, copy, modify, distribute, and sell this
@@ -114,7 +114,7 @@
 			CCID_PC_to_RDR_ResetParameters		= 0x6d,
 			CCID_PC_to_RDR_SetParameters         	= 0x61,
 			CCID_PC_to_RDR_Escape			= 0x6b,
-			
+
 			CCID_RDR_to_PC_DataBlock   			= 0x80,
 			CCID_RDR_to_PC_SlotStatus  			= 0x81
 
@@ -165,7 +165,7 @@
 			uint8_t Seq;
 
 		} ATTR_PACKED USB_CCID_BulkMessage_Header_t;
-		
+
 		typedef struct
 		{
 			USB_CCID_BulkMessage_Header_t CCIDHeader;
