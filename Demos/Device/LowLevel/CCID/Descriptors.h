@@ -48,7 +48,7 @@
 		/** Endpoint address of the CCID data OUT endpoint, for host-to-device data transfers. */
 		#define CCID_OUT_EPADDR      (ENDPOINT_DIR_OUT | 1)
 
-		/** Endpoint size in bytes of the Audio isochronous streaming data IN and OUT endpoints. */
+		/** Endpoint size in bytes of the CCID  IN and OUT endpoints. */
 		#define CCID_EPSIZE          64
 
 

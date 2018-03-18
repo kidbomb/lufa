@@ -51,6 +51,9 @@
 #define  INCLUDE_FROM_CCID_C
 #include "CCID.h"
 
+bool Aborted;
+uint8_t AbortedSeq;
+
 
 /** Main program entry point. This routine configures the hardware required by the application, then
  *  enters a loop to run the application tasks in sequence.
@@ -136,57 +139,166 @@ void EVENT_USB_Device_ControlRequest(void)
 	switch (USB_ControlRequest.bRequest)
 	{
 		case CCID_ABORT:
+		{
+			// initiates the abort process
+			// the host should send 2 messages in the following order:
+			//  - CCID_ABORT control request
+			//  - CCID_PC_t_PCo_RDR_Abort command
 			//
+			// If the device is still processing a mesage, it should fail it until receiving a CCIRPC_to_RDR_Abort
+			// command
+			//
+			// When the device receives the CCIRPC_to_RDR_Abort message, it replies with  RDR_to_PC_SlotStatus 
+			//and the abort process ends
+			
+			// The  wValue  field  contains the slot number (bSlot) in the low byte and the sequence number (bSeq) in 
+			// the high  byte
+			uint8_t Slot = USB_ControlRequest.wValue & 0xFF;
+			uint8_t Seq = USB_ControlRequest.wValue  >> 8;
+
+			if (USB_ControlRequest.bmRequestType == (REQDIR_DEVICETOHOST | REQTYPE_CLASS | REQREC_INTERFACE) && Slot == 0)
+			{
+
+				Endpoint_ClearSETUP();
+
+				Aborted = true;
+				AbortedSeq = Seq;
+
+				Endpoint_ClearOUT();
+			}
+
 			break;
+		}
 		case CCID_GET_CLOCK_FREQUENCIES:
-			//
+		{
+			if (USB_ControlRequest.bmRequestType == (REQDIR_DEVICETOHOST | REQTYPE_CLASS | REQREC_INTERFACE))
+			{
+
+				Endpoint_ClearSETUP();
+				Endpoint_Write_8(0); //not supported
+				Endpoint_ClearOUT();
+			}
 			break;
+		}
 		case CCID_GET_DATA_RATES:
-			//
+		{
+			if (USB_ControlRequest.bmRequestType == (REQDIR_DEVICETOHOST | REQTYPE_CLASS | REQREC_INTERFACE))
+			{
+
+				Endpoint_ClearSETUP();
+				Endpoint_Write_8(0); //not supported
+				Endpoint_ClearOUT();
+			}
 			break;
+		}
 	}
 }
 
+/** Event handler for the CCID_PC_to_RDR_IccPowerOn message. This message is sent to the device
+ *  whenever an application at the host wants to send a power off signal to a slot.
+ *  THe slot must reply back with a recognizable ATR (answer to reset) 
+ */
+uint8_t CCID_IccPowerOn(uint8_t slot,
+						 uint8_t *atr,
+						 uint8_t * atrLength,
+                         uint8_t *error)
+{
+	if (slot == 0)
+	{
+		Iso7816_CreateSimpleAtr(atr, atrLength);
+
+		*error = CCID_ERROR_NO_ERROR;
+		return CCID_COMMANDSTATUS_PROCESSEDWITHOUTERROR | CCID_ICCSTATUS_PRESENTANDACTIVE;
+	}
+	else
+	{
+		*error = CCID_ERROR_SLOT_NOT_FOUND;
+		return CCID_COMMANDSTATUS_FAILED | CCID_ICCSTATUS_NOICCPRESENT;
+	}
+}
+
+
+/** Event handler for the CCID_PC_to_RDR_IccPowerOff message. This message is sent to the device
+ *  whenever an application at the host wants to send a power off signal to a slot.
+ */
 uint8_t CCID_IccPowerOff(uint8_t slot,
                          uint8_t *error)
 {
 	if (slot == 0)
 	{
-		*error = CCID_ERROR_NOERROR;
+		*error = CCID_ERROR_NO_ERROR;
 		return CCID_COMMANDSTATUS_PROCESSEDWITHOUTERROR | CCID_ICCSTATUS_NOICCPRESENT;
 	}
 	else
 	{
-		*error = CCID_ERROR_SLOTNOTFOUND;
+		*error = CCID_ERROR_SLOT_NOT_FOUND;
 		return CCID_COMMANDSTATUS_FAILED | CCID_ICCSTATUS_NOICCPRESENT;
 	}
 }
 
+/** Event handler for the CCID_PC_to_RDR_GetSlotStatus. THis message is sent to the device
+ *  whenever an application at the host wants to the get the current slot status
+ *
+ */
 uint8_t CCID_GetSlotStatus(uint8_t slot,
                            uint8_t *error)
 {
 	if (slot == 0)
 	{
-		*error = CCID_ERROR_NOERROR;
+		*error = CCID_ERROR_NO_ERROR;
 		return CCID_COMMANDSTATUS_PROCESSEDWITHOUTERROR | CCID_ICCSTATUS_PRESENTANDACTIVE;
 	}
 	else
 	{
-		*error = CCID_ERROR_SLOTNOTFOUND;
+		*error = CCID_ERROR_SLOT_NOT_FOUND;
 		return CCID_COMMANDSTATUS_FAILED | CCID_ICCSTATUS_NOICCPRESENT;
 	}
 }
 
+/** Event handler for the CCID_PC_to_RDR_ABort message. This message is sent to the device
+ *  whenever an application wants to abort the current operation.
+ * A previous CCID_ABORT control message has to be sent before this one in order to
+ * start the abort operation
+ */
+uint8_t CCID_Abort(uint8_t slot,
+                         uint8_t seq,
+                         uint8_t *error)
+{
+	if(Aborted && slot == 0 && AbortedSeq == seq) {
+		Aborted = false;
+		AbortedSeq = -1;
+		*error = CCID_ERROR_NO_ERROR;
+		return CCID_COMMANDSTATUS_PROCESSEDWITHOUTERROR | CCID_ICCSTATUS_PRESENTANDACTIVE;
+	} else if(!Aborted) {
+		*error = CCID_ERROR_CMD_NOT_ABORTED;
+		return CCID_COMMANDSTATUS_PROCESSEDWITHOUTERROR | CCID_ICCSTATUS_PRESENTANDACTIVE;                  
+	} else if(slot != 0){
+		*error = CCID_ERROR_SLOT_NOT_FOUND;
+		return CCID_COMMANDSTATUS_FAILED | CCID_ICCSTATUS_NOICCPRESENT;
+	} else {
+		*error = CCID_ERROR_NOT_SUPPORTED;
+		return CCID_COMMANDSTATUS_FAILED | CCID_ICCSTATUS_NOICCPRESENT;
+	}
+}
+
+/** Gets and status and verifies whether an error ocurred
+ *
+ */
 bool CCID_CheckStatusNoError(int status)
 {
 	return (status && 0xC0) == 0x0;
 }
 
+/** Main loop for CCID
+ *
+ */
 void CCID_Task(void)
 {
 	Endpoint_SelectEndpoint(CCID_OUT_EPADDR);
 
 	uint8_t BlockBuffer[0x20];
+	Aborted = false;
+	AbortedSeq = -1;
 
 	if (Endpoint_IsOUTReceived())
 	{
@@ -197,15 +309,13 @@ void CCID_Task(void)
 		CCIDHeader.Seq         = Endpoint_Read_8();
 
 		uint8_t Status;
-		uint8_t Error = CCID_ERROR_NOERROR;
+		uint8_t Error = CCID_ERROR_NO_ERROR;
 
 		switch (CCIDHeader.MessageType)
 		{
 			case CCID_PC_to_RDR_IccPowerOn:
 			{
-				uint8_t AttrBuffer[17] = {0x3B, 0x8C, 0x80, 0x01, 0x59, 0x75, 0x62, 0x69, 0x6B, 0x65, 0x79, 0x4E, 0x45, 0x4F, 0x72, 0x33, 0x58};
-				uint8_t AttrLength     = sizeof(AttrBuffer);
-
+				uint8_t  AtrLength;
 				USB_CCID_RDR_to_PC_DataBlock_t* ResponseATR = (USB_CCID_RDR_to_PC_DataBlock_t*)&BlockBuffer;
 
 				ResponseATR->CCIDHeader.MessageType = CCID_RDR_to_PC_DataBlock;
@@ -213,16 +323,21 @@ void CCID_Task(void)
 				ResponseATR->CCIDHeader.Seq         = CCIDHeader.Seq;
 				ResponseATR->ChainParam             = 0;
 
-				Status = CCID_COMMANDSTATUS_PROCESSEDWITHOUTERROR | CCID_ICCSTATUS_PRESENTANDACTIVE;
+				Status = CCID_IccPowerOn(ResponseATR->CCIDHeader.Slot, (uint8_t *)ResponseATR->Data, &AtrLength, &Error);
 
-				if (CCID_CheckStatusNoError(Status))
+				if (CCID_CheckStatusNoError(Status) && !Aborted)
 				{
-					ResponseATR->CCIDHeader.Length = AttrLength;
-					memcpy(&ResponseATR->Data, AttrBuffer, AttrLength);
+					ResponseATR->CCIDHeader.Length = AtrLength;
+				}
+				else if(Aborted)
+				{
+					Status = CCID_COMMANDSTATUS_FAILED | CCID_ICCSTATUS_PRESENTANDACTIVE;
+					Error =  CCID_ERROR_CMD_ABORTED;
+					AtrLength = 0;
 				}
 				else
 				{
-					AttrLength = 0;
+					AtrLength = 0;
 				}
 
 				ResponseATR->Status = Status;
@@ -231,53 +346,53 @@ void CCID_Task(void)
 				Endpoint_ClearOUT();
 
 				Endpoint_SelectEndpoint(CCID_IN_EPADDR);
-				Endpoint_Write_Stream_LE(ResponseATR, sizeof(USB_CCID_RDR_to_PC_DataBlock_t) + AttrLength, NULL);
+				Endpoint_Write_Stream_LE(ResponseATR, sizeof(USB_CCID_RDR_to_PC_DataBlock_t) + AtrLength, NULL);
 				Endpoint_ClearIN();
 				break;
 			}
 
 			case CCID_PC_to_RDR_IccPowerOff:
 			{
-				USB_CCID_RDR_to_PC_SlotStatus_t ResponsePowerOff;
-				ResponsePowerOff.CCIDHeader.MessageType = CCID_RDR_to_PC_SlotStatus;
-				ResponsePowerOff.CCIDHeader.Length      = 0;
-				ResponsePowerOff.CCIDHeader.Slot        = CCIDHeader.Slot;
-				ResponsePowerOff.CCIDHeader.Seq         = CCIDHeader.Seq;
+				USB_CCID_RDR_to_PC_SlotStatus_t* ResponsePowerOff =  (USB_CCID_RDR_to_PC_SlotStatus_t*)&BlockBuffer;
+				ResponsePowerOff->CCIDHeader.MessageType = CCID_RDR_to_PC_SlotStatus;
+				ResponsePowerOff->CCIDHeader.Length      = 0;
+				ResponsePowerOff->CCIDHeader.Slot        = CCIDHeader.Slot;
+				ResponsePowerOff->CCIDHeader.Seq         = CCIDHeader.Seq;
 
-				ResponsePowerOff.ClockStatus = 0;
+				ResponsePowerOff->ClockStatus = 0;
 
 				Status = CCID_IccPowerOff(CCIDHeader.Slot, &Error);
 
-				ResponsePowerOff.Status = Status;
-				ResponsePowerOff.Error  = Error;
+				ResponsePowerOff->Status = Status;
+				ResponsePowerOff->Error  = Error;
 
 				Endpoint_ClearOUT();
 
 				Endpoint_SelectEndpoint(CCID_IN_EPADDR);
-				Endpoint_Write_Stream_LE(&ResponsePowerOff, sizeof(USB_CCID_RDR_to_PC_SlotStatus_t), NULL);
+				Endpoint_Write_Stream_LE(ResponsePowerOff, sizeof(USB_CCID_RDR_to_PC_SlotStatus_t), NULL);
 				Endpoint_ClearIN();
 				break;
 			}
 
 			case CCID_PC_to_RDR_GetSlotStatus:
 			{
-				USB_CCID_RDR_to_PC_SlotStatus_t ResponseSlotStatus;
-				ResponseSlotStatus.CCIDHeader.MessageType = CCID_RDR_to_PC_SlotStatus;
-				ResponseSlotStatus.CCIDHeader.Length      = 0;
-				ResponseSlotStatus.CCIDHeader.Slot        = CCIDHeader.Slot;
-				ResponseSlotStatus.CCIDHeader.Seq         = CCIDHeader.Seq;
+				USB_CCID_RDR_to_PC_SlotStatus_t* ResponseSlotStatus = (USB_CCID_RDR_to_PC_SlotStatus_t*)&BlockBuffer;
+				ResponseSlotStatus->CCIDHeader.MessageType = CCID_RDR_to_PC_SlotStatus;
+				ResponseSlotStatus->CCIDHeader.Length      = 0;
+				ResponseSlotStatus->CCIDHeader.Slot        = CCIDHeader.Slot;
+				ResponseSlotStatus->CCIDHeader.Seq         = CCIDHeader.Seq;
 
-				ResponseSlotStatus.ClockStatus = 0;
+				ResponseSlotStatus->ClockStatus = 0;
 
 				Status = CCID_GetSlotStatus(CCIDHeader.Slot, &Error);
 
-				ResponseSlotStatus.Status = Status;
-				ResponseSlotStatus.Error  = Error;
+				ResponseSlotStatus->Status = Status;
+				ResponseSlotStatus->Error  = Error;
 
 				Endpoint_ClearOUT();
 
 				Endpoint_SelectEndpoint(CCID_IN_EPADDR);
-				Endpoint_Write_Stream_LE(&ResponseSlotStatus, sizeof(USB_CCID_RDR_to_PC_SlotStatus_t), NULL);
+				Endpoint_Write_Stream_LE(ResponseSlotStatus, sizeof(USB_CCID_RDR_to_PC_SlotStatus_t), NULL);
 				Endpoint_ClearIN();
 				break;
 			}
@@ -303,12 +418,19 @@ void CCID_Task(void)
 
 				ResponseBlock->ChainParam = 0;
 
+				//TODO: callback
 				Status = CCID_COMMANDSTATUS_PROCESSEDWITHOUTERROR | CCID_ICCSTATUS_PRESENTANDACTIVE;
 
-				if (CCID_CheckStatusNoError(Status))
+				if (CCID_CheckStatusNoError(Status) && !Aborted)
 				{
 					ResponseBlock->CCIDHeader.Length = SendLength;
 					memcpy(&ResponseBlock->Data, SendBuffer, SendLength);
+				}
+				else if(Aborted)
+				{
+					Status = CCID_COMMANDSTATUS_FAILED | CCID_ICCSTATUS_PRESENTANDACTIVE;
+					Error =  CCID_ERROR_CMD_ABORTED;
+					SendLength = 0;
 				}
 				else
 				{
@@ -326,13 +448,34 @@ void CCID_Task(void)
 				break;
 			}
 
-			default:
+			case CCID_PC_to_RDR_Abort:
 			{
-				uint8_t SentData[0x20];
-				memset(SentData, 0x00, sizeof(SentData));
+				USB_CCID_RDR_to_PC_SlotStatus_t* ResponseAbort =  (USB_CCID_RDR_to_PC_SlotStatus_t*)&BlockBuffer;
+				ResponseAbort->CCIDHeader.MessageType = CCID_RDR_to_PC_SlotStatus;
+				ResponseAbort->CCIDHeader.Length      = 0;
+				ResponseAbort->CCIDHeader.Slot        = CCIDHeader.Slot;
+				ResponseAbort->CCIDHeader.Seq         = CCIDHeader.Seq;
+
+				ResponseAbort->ClockStatus = 0;
+
+				Status = CCID_Abort(CCIDHeader.Slot, CCIDHeader.Seq, &Error);
+
+				ResponseAbort->Status = Status;
+				ResponseAbort->Error  = Error;
+
+				Endpoint_ClearOUT();
 
 				Endpoint_SelectEndpoint(CCID_IN_EPADDR);
-				Endpoint_Write_Stream_LE(&SentData, sizeof(SentData), NULL);
+				Endpoint_Write_Stream_LE(ResponseAbort, sizeof(USB_CCID_RDR_to_PC_SlotStatus_t), NULL);
+				Endpoint_ClearIN();
+				break;
+			}
+			default:
+			{
+				memset(BlockBuffer, 0x00, sizeof(BlockBuffer));
+
+				Endpoint_SelectEndpoint(CCID_IN_EPADDR);
+				Endpoint_Write_Stream_LE(BlockBuffer, sizeof(BlockBuffer), NULL);
 				Endpoint_ClearIN();
 			}
 		}

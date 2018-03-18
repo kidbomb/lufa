@@ -46,6 +46,8 @@
 
 		#include "Descriptors.h"
 
+		#include "Lib/Iso7816.h"
+
 		#include <LUFA/Drivers/USB/USB.h>
 		#include <LUFA/Drivers/Board/LEDs.h>
 		#include <LUFA/Platform/Platform.h>
@@ -67,6 +69,7 @@
 		#define LEDMASK_USB_BUSY           LEDS_LED2
 
 	/* Function Prototypes: */
+
 		void	SetupHardware(void);
 		void	CCID_Task(void);
 

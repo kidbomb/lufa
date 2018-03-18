@@ -70,8 +70,11 @@
 		#define CCID_VOLTAGESUPPORT_3V						(1 << 0)
 		#define CCID_VOLTAGESUPPORT_1V8						(1 << 1)
 
-		#define CCID_PROTOCOL_T0							0
-		#define CCID_PROTOCOL_T1							(1 << 0)
+		#define CCID_PROTOCOLS_T0							(1 << 0)
+		#define CCID_PROTOCOLS_T1							(1 << 1)
+
+		#define CCID_PROTOCOLNUM_T0							0
+		#define CCID_PROTOCOLNUM_T1							(1 << 0)
 
 		#define CCID_ICCSTATUS_PRESENTANDACTIVE				0
 		#define CCID_ICCSTATUS_PRESENTANDINACTIVE			(1 << 0)
@@ -79,10 +82,24 @@
 
 		#define CCID_COMMANDSTATUS_PROCESSEDWITHOUTERROR	0
 		#define CCID_COMMANDSTATUS_FAILED					(1 << 6)
-		#define CCID_COMMANDSTATUS_TIMEEXTENSIONREQUESTED	(1 << 7)
+		#define CCID_COMMANDSTATUS_TIMEEXTENSIONREQUESTED	(2 << 6)
+		#define CCID_COMMANDSTATUS_RFU						(3 << 6)
 
-		#define CCID_ERROR_NOERROR							0
-		#define CCID_ERROR_SLOTNOTFOUND						5
+		#define CCID_ERROR_RFU_START							0x80
+		#define CCID_ERROR_NO_ERROR							0x80 //When  the bmCommandStatus  field is 0 
+																	//indicating the command Processed without Error 
+																	//or when the bmCommand field is an RFU value, 
+																	//then the slot’s error register is RFU. 
+		#define CCID_ERROR_NOT_SUPPORTED					0
+		#define CCID_ERROR_CMD_ABORTED 						0xFF
+		#define CCID_ERROR_CMD_NOT_ABORTED  				0xFF //this constant seems to be missing from the documentation
+
+		//specific message error
+				
+		#define CCID_ERROR_SLOT_NOT_FOUND  				5
+
+		#define CCID_DESCRIPTOR_CLOCK_KHZ(khz)				khz
+		#define CCID_DESCRIPTOR_CLOCK_MHZ(mhz)				mhz * 1000
 
 
 	/* Enums: */
@@ -91,31 +108,41 @@
 		 */
 		enum CCID_Descriptor_ClassSubclassProtocol_t
 		{
-			CCID_CSCP_CCIDClass				= 0x0B, /**< Descriptor Class value indicating that the device or interface
+			CCID_CSCP_CCIDClass             = 0x0b, /**< Descriptor Class value indicating that the device or interface
 			                                         *   belongs to the CCID class.
 			                                         */
-			CCID_CSCP_NoSpecificSubclass	= 0x00, /**< Descriptor Subclass value indicating that the device or interface
+			CCID_CSCP_NoSpecificSubclass     = 0x00, /**< Descriptor Subclass value indicating that the device or interface
 			                                         *   belongs to no specific subclass of the CCID class.
 			                                         */
-			CCID_CSCP_NoSpecificProtocol	= 0x00, /**< Descriptor Protocol value indicating that the device or interface
+			CCID_CSCP_NoSpecificProtocol     = 0x00, /**< Descriptor Protocol value indicating that the device or interface
 			                                         *   belongs to no specific protocol of the CCID class.
 			                                         */
 		};
 
-		/** Enum for possible CCID class bulk message types sent between PC and Reader */
+		/** Enum for possible bulk messages between PC and Reader */
 		enum CCID_BulkOutMessages_t
 		{
-			CCID_PC_to_RDR_IccPowerOn		= 0x62,
-			CCID_PC_to_RDR_IccPowerOff 		= 0x63,
-			CCID_PC_to_RDR_GetSlotStatus	= 0x65,
-			CCID_PC_to_RDR_XfrBlock			= 0x6F,
-			CCID_PC_to_RDR_GetParameters	= 0x6C,
-			CCID_PC_to_RDR_ResetParameters	= 0x6D,
-			CCID_PC_to_RDR_SetParameters   	= 0x61,
-			CCID_PC_to_RDR_Escape			= 0x6B,
+			CCID_PC_to_RDR_IccPowerOn  			= 0x62,
+			CCID_PC_to_RDR_IccPowerOff 			= 0x63,
+			CCID_PC_to_RDR_GetSlotStatus  		= 0x65,
+			CCID_PC_to_RDR_XfrBlock			= 0x6f,
+			CCID_PC_to_RDR_GetParameters			= 0x6c,
+			CCID_PC_to_RDR_ResetParameters		= 0x6d,
+			CCID_PC_to_RDR_SetParameters         	= 0x61,
+			CCID_PC_to_RDR_Escape			= 0x6b,
+			CCID_PC_to_RDR_IccClock			= 0x6e,
+			CCID_PC_to_RDR_T0APDU			= 0x6a,
+			CCID_PC_to_RDR_Secure			= 0x69,
+			CCID_PC_to_RDR_Mechanical		= 0x71,
+			CCID_PC_to_RDR_Abort			= 0x72,
+			CCID_PC_to_RDR_SetDataRateAndClockFrequency = 0x73,              
+			
+			CCID_RDR_to_PC_DataBlock   			= 0x80,
+			CCID_RDR_to_PC_SlotStatus  			= 0x81,
+			CCID_RDR_to_PC_Parameters  			= 0x82,
+			CCID_RDR_to_PC_Escape  			= 0x83,
+			CCID_RDR_to_PC_DataRateAndClockFrequency  			= 0x84
 
-			CCID_RDR_to_PC_DataBlock   		= 0x80,
-			CCID_RDR_to_PC_SlotStatus  		= 0x81
 		};
 
 		/** Enum for the CCID class specific control requests that can be issued by the USB bus host. */
@@ -153,6 +180,27 @@
 			uint8_t		MaxCCIDBusySlots;
 		} ATTR_PACKED USB_CCID_Descriptor_t;
 
+		typedef struct
+		{
+			uint8_t	FindexDindex;
+			uint8_t	TCCKST0;
+			uint8_t	GuardTimeT0;
+			uint8_t	WaitingIntegerT0;
+			uint8_t	ClockStop;
+		} ATTR_PACKED USB_CCID_ProtocolData_T0_t;
+
+		typedef struct
+		{
+			uint8_t	FindexDindex;
+			uint8_t	TCCKST1;
+			uint8_t	GuardTimeT1;
+			uint8_t	WaitingIntegerT1;
+			uint8_t	ClockStop;
+			uint8_t	FSC;
+			uint8_t	NadValue;
+		} ATTR_PACKED USB_CCID_ProtocolData_T1_t;
+
+
 		/** Enum for a common bulk message header. */
 		typedef struct
 		{
@@ -165,24 +213,50 @@
 		typedef struct
 		{
 			USB_CCID_BulkMessage_Header_t CCIDHeader;
-		} ATTR_PACKED USB_CCID_PC_to_RDR_GetSlotStatus_t;
-
-		typedef struct
-		{
-			USB_CCID_BulkMessage_Header_t CCIDHeader;
-			uint8_t		Status;
-			uint8_t		Error;
-			uint8_t		ChainParam;
-			uint8_t		Data[0];
+			uint8_t Status;
+			uint8_t Error;
+			uint8_t ChainParam;
+			uint8_t Data[0];
 		} ATTR_PACKED USB_CCID_RDR_to_PC_DataBlock_t;
 
 		typedef struct
 		{
 			USB_CCID_BulkMessage_Header_t CCIDHeader;
-			uint8_t		Status;
-			uint8_t		Error;
-			uint8_t		ClockStatus;
+			uint8_t Status;
+			uint8_t Error;
+			uint8_t ClockStatus;
 		} ATTR_PACKED USB_CCID_RDR_to_PC_SlotStatus_t;
+
+		typedef struct
+		{
+			USB_CCID_BulkMessage_Header_t CCIDHeader;
+			uint8_t Status;
+			uint8_t Error;
+			uint8_t ProtocolNum;
+			union {
+				USB_CCID_ProtocolData_T0_t T0;
+				USB_CCID_ProtocolData_T1_t T1;
+			} ProtocolData;
+		} ATTR_PACKED USB_CCID_RDR_to_PC_Parameters_t;
+
+		typedef struct
+		{
+			USB_CCID_BulkMessage_Header_t CCIDHeader;
+			uint8_t Status;
+			uint8_t Error;
+			uint8_t RFU;
+			uint8_t Data[0];
+		} ATTR_PACKED USB_CCID_RDR_to_PC_Escape_t;
+
+		typedef struct
+		{
+			USB_CCID_BulkMessage_Header_t CCIDHeader;
+			uint8_t Status;
+			uint8_t Error;
+			uint8_t RFU;
+			uint32_t ClockFrequency;
+			uint32_t DataRate;
+		} ATTR_PACKED USB_CCID_RDR_to_PC_DataRateAndClockFrequency_t;
 
 	/* Disable C linkage for C++ Compilers: */
 		#if defined(__cplusplus)
