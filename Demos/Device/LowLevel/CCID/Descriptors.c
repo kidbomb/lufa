@@ -119,12 +119,12 @@ const USB_Descriptor_Configuration_t PROGMEM ConfigurationDescriptor =
 			.MaxIFSD				= 2038,
 			.SynchProtocols			= 0,
 			.Mechanical				= 0,
-			.Features				= 0x0400fe,
+			.Features				= CCID_Descriptor_Features_ShortApduLevelExchange,
 			.MaxCCIDMessageLength	= 0x0c00,
-			.ClassGetResponse		= 0xff,
-			.ClassEnvelope			= 0xff,
-			.LcdLayout				= 0,
-			.PINSupport				= 0,
+			.ClassGetResponse		= 0xff, //Value FFh indicates that the CCID echoes the class of the APDU. 
+			.ClassEnvelope			= 0xff, //Value FFh indicates that the CCID echoes the class of the APDU. 
+			.LcdLayout				= 0, //nolcd
+			.PINSupport				= 0, //nopinsupport
 			.MaxCCIDBusySlots		= 1
 
 		},

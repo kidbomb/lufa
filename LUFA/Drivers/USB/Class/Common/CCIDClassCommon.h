@@ -119,6 +119,26 @@
 			                                         */
 		};
 
+		enum CCID_Descriptor_Features_t
+		{
+			CCID_Descriptor_Features_NoSpecialCharacteristics			= 0,
+			CCID_Descriptor_Features_AutoConfigBasedOnATR				= (1 << 1),
+			CCID_Descriptor_Features_ICCAutoActivatesOnInserting		= (1 << 2),
+			CCID_Descriptor_Features_ICCAutoVoltageSelection			= (1 << 3),
+			CCID_Descriptor_Features_ICCAutoClockFrequencyChange		= (1 << 4),
+			CCID_Descriptor_Features_AutoBaudRate						= (1 << 5),
+			CCID_Descriptor_Features_AutoParameterNegotiation			= (1 << 6),
+			CCID_Descriptor_Features_AutoPPS							= (1 << 7),
+			CCID_Descriptor_Features_CanSetICCClockStopMode				= (1 << 8),
+			CCID_Descriptor_Features_NADValueOtherThanZeroAcceptable	= (1 << 9),
+			CCID_Descriptor_Features_AutomaticIFSDExchangeAsFirst		= (1 << 10),
+
+			CCID_Descriptor_Features_TPDULevelExchange					= (1 << 16),
+			CCID_Descriptor_Features_ShortApduLevelExchange				= (1 << 17),
+			CCID_Descriptor_Features_ShortExtendedApduLevelExchange		= (1 << 18),
+
+		};
+
 		/** Enum for possible bulk messages between PC and Reader */
 		enum CCID_BulkOutMessages_t
 		{

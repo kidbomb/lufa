@@ -296,7 +296,7 @@ void CCID_Task(void)
 {
 	Endpoint_SelectEndpoint(CCID_OUT_EPADDR);
 
-	uint8_t BlockBuffer[0x20];
+	uint8_t ResponseBuffer[0x20];
 	Aborted = false;
 	AbortedSeq = -1;
 
@@ -316,7 +316,7 @@ void CCID_Task(void)
 			case CCID_PC_to_RDR_IccPowerOn:
 			{
 				uint8_t  AtrLength;
-				USB_CCID_RDR_to_PC_DataBlock_t* ResponseATR = (USB_CCID_RDR_to_PC_DataBlock_t*)&BlockBuffer;
+				USB_CCID_RDR_to_PC_DataBlock_t* ResponseATR = (USB_CCID_RDR_to_PC_DataBlock_t*)&ResponseBuffer;
 
 				ResponseATR->CCIDHeader.MessageType = CCID_RDR_to_PC_DataBlock;
 				ResponseATR->CCIDHeader.Slot        = CCIDHeader.Slot;
@@ -353,7 +353,7 @@ void CCID_Task(void)
 
 			case CCID_PC_to_RDR_IccPowerOff:
 			{
-				USB_CCID_RDR_to_PC_SlotStatus_t* ResponsePowerOff =  (USB_CCID_RDR_to_PC_SlotStatus_t*)&BlockBuffer;
+				USB_CCID_RDR_to_PC_SlotStatus_t* ResponsePowerOff =  (USB_CCID_RDR_to_PC_SlotStatus_t*)&ResponseBuffer;
 				ResponsePowerOff->CCIDHeader.MessageType = CCID_RDR_to_PC_SlotStatus;
 				ResponsePowerOff->CCIDHeader.Length      = 0;
 				ResponsePowerOff->CCIDHeader.Slot        = CCIDHeader.Slot;
@@ -376,7 +376,7 @@ void CCID_Task(void)
 
 			case CCID_PC_to_RDR_GetSlotStatus:
 			{
-				USB_CCID_RDR_to_PC_SlotStatus_t* ResponseSlotStatus = (USB_CCID_RDR_to_PC_SlotStatus_t*)&BlockBuffer;
+				USB_CCID_RDR_to_PC_SlotStatus_t* ResponseSlotStatus = (USB_CCID_RDR_to_PC_SlotStatus_t*)&ResponseBuffer;
 				ResponseSlotStatus->CCIDHeader.MessageType = CCID_RDR_to_PC_SlotStatus;
 				ResponseSlotStatus->CCIDHeader.Length      = 0;
 				ResponseSlotStatus->CCIDHeader.Slot        = CCIDHeader.Slot;
@@ -401,40 +401,40 @@ void CCID_Task(void)
 			{
 				uint8_t  Bwi            = Endpoint_Read_8();
 				uint16_t LevelParameter = Endpoint_Read_16_LE();
-				uint8_t  ReceivedBuffer[0x4];
+				uint8_t  CommandBuffer[0x20];
 
 				(void)Bwi;
 				(void)LevelParameter;
 
-				Endpoint_Read_Stream_LE(ReceivedBuffer, sizeof(ReceivedBuffer), NULL);
+				//TODO: check size; what is the maximum size defined by the standard?
+				Endpoint_Read_Stream_LE(CommandBuffer, CCIDHeader.Length, NULL);
 
-				uint8_t  SendBuffer[0x2] = {0x90, 0x00};
-				uint8_t  SendLength      = sizeof(SendBuffer);
+				uint8_t ResponseLength;
 
-				USB_CCID_RDR_to_PC_DataBlock_t* ResponseBlock = (USB_CCID_RDR_to_PC_DataBlock_t*)&BlockBuffer;
+				USB_CCID_RDR_to_PC_DataBlock_t* ResponseBlock = (USB_CCID_RDR_to_PC_DataBlock_t*)&ResponseBuffer;
 				ResponseBlock->CCIDHeader.MessageType = CCID_RDR_to_PC_DataBlock;
 				ResponseBlock->CCIDHeader.Slot        = CCIDHeader.Slot;
 				ResponseBlock->CCIDHeader.Seq         = CCIDHeader.Seq;
 
 				ResponseBlock->ChainParam = 0;
 
-				//TODO: callback
+				Iso7816_HandleCommand(CommandBuffer, CCIDHeader.Length, ResponseBuffer, &ResponseLength);
 				Status = CCID_COMMANDSTATUS_PROCESSEDWITHOUTERROR | CCID_ICCSTATUS_PRESENTANDACTIVE;
 
 				if (CCID_CheckStatusNoError(Status) && !Aborted)
 				{
-					ResponseBlock->CCIDHeader.Length = SendLength;
-					memcpy(&ResponseBlock->Data, SendBuffer, SendLength);
+					ResponseBlock->CCIDHeader.Length = ResponseLength;
+					memcpy(&ResponseBlock->Data, ResponseBuffer, ResponseLength);
 				}
 				else if(Aborted)
 				{
 					Status = CCID_COMMANDSTATUS_FAILED | CCID_ICCSTATUS_PRESENTANDACTIVE;
 					Error =  CCID_ERROR_CMD_ABORTED;
-					SendLength = 0;
+					ResponseLength = 0;
 				}
 				else
 				{
-					SendLength = 0;
+					ResponseLength = 0;
 				}
 
 				ResponseBlock->Status = Status;
