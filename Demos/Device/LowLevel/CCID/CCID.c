@@ -418,7 +418,10 @@ void CCID_Task(void)
 
 				ResponseBlock->ChainParam = 0;
 
-				Iso7816_HandleCommand(CommandBuffer, CCIDHeader.Length, ResponseBuffer, &ResponseLength);
+				//TODO: callback
+				//simulate ok response with empty data for new
+				uint8_t  OkResponse[0x2] = {0x90, 0x00};
+				ResponseLength = sizeof(OkResponse);
 				Status = CCID_COMMANDSTATUS_PROCESSEDWITHOUTERROR | CCID_ICCSTATUS_PRESENTANDACTIVE;
 
 				if (CCID_CheckStatusNoError(Status) && !Aborted)
@@ -443,14 +446,14 @@ void CCID_Task(void)
 				Endpoint_ClearOUT();
 
 				Endpoint_SelectEndpoint(CCID_IN_EPADDR);
-				Endpoint_Write_Stream_LE(ResponseBlock, sizeof(USB_CCID_RDR_to_PC_DataBlock_t) + SendLength, NULL);
+				Endpoint_Write_Stream_LE(ResponseBlock, sizeof(USB_CCID_RDR_to_PC_DataBlock_t) + ResponseLength, NULL);
 				Endpoint_ClearIN();
 				break;
 			}
 
 			case CCID_PC_to_RDR_Abort:
 			{
-				USB_CCID_RDR_to_PC_SlotStatus_t* ResponseAbort =  (USB_CCID_RDR_to_PC_SlotStatus_t*)&BlockBuffer;
+				USB_CCID_RDR_to_PC_SlotStatus_t* ResponseAbort =  (USB_CCID_RDR_to_PC_SlotStatus_t*)&ResponseBuffer;
 				ResponseAbort->CCIDHeader.MessageType = CCID_RDR_to_PC_SlotStatus;
 				ResponseAbort->CCIDHeader.Length      = 0;
 				ResponseAbort->CCIDHeader.Slot        = CCIDHeader.Slot;
@@ -472,10 +475,10 @@ void CCID_Task(void)
 			}
 			default:
 			{
-				memset(BlockBuffer, 0x00, sizeof(BlockBuffer));
+				memset(ResponseBuffer, 0x00, sizeof(ResponseBuffer));
 
 				Endpoint_SelectEndpoint(CCID_IN_EPADDR);
-				Endpoint_Write_Stream_LE(BlockBuffer, sizeof(BlockBuffer), NULL);
+				Endpoint_Write_Stream_LE(ResponseBuffer, sizeof(ResponseBuffer), NULL);
 				Endpoint_ClearIN();
 			}
 		}

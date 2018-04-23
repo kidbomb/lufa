@@ -101,6 +101,21 @@
 		#define CCID_DESCRIPTOR_CLOCK_KHZ(khz)				khz
 		#define CCID_DESCRIPTOR_CLOCK_MHZ(mhz)				mhz * 1000
 
+		#define CCID_DESCRIPTOR_FEATURES_NOSPECIALCHARACTERISTICS	0
+		#define CCID_DESCRIPTOR_FEATURES_AUTOCONFIGBASEDONATR		(1 << 1)
+ 		#define CCID_DESCRIPTOR_FEATURES_ICCAUTOACTIVATESONINSERTING    (1 << 2)
+		#define CCID_DESCRIPTOR_FEATURES_ICCAUTOVOLTAGESELECTION        (1 << 3)
+		#define CCID_DESCRIPTOR_FEATURES_ICCAUTOCLOCKFREQUENCYCHANGE    (1 << 4)
+		#define CCID_DESCRIPTOR_FEATURES_AUTOBAUDRATE                   (1 << 5)
+		#define CCID_DESCRIPTOR_FEATURES_AUTOPARAMETERNEGOTIATION       (1 << 6)
+		#define CCID_DESCRIPTOR_FEATURES_AUTOPPS                        (1 << 7)
+		#define CCID_DESCRIPTOR_FEATURES_CANSETICCCLOCKSTOPMODE          (1 << 8)
+		#define CCID_DESCRIPTOR_FEATURES_NADVALUEOTHERTHANZEROACCEPTABLE	(1 << 9)
+		#define CCID_DESCRIPTOR_FEATURES_AUTOMATICIFSDEXCHANGEASFIRST           (1 << 10)
+
+		#define CCID_DESCRIPTOR_FEATURES_TPDULEVELEXCHANGE                      (1 << 16)
+		#define CCID_DESCRIPTOR_FEATURES_SHORTAPDULEVELEXCHANGE                 (1 << 17)
+		#define CCID_DESCRIPTOR_FEATURES_SHORTEXTENDEDAPDULEVELEXCHANGE         (1 << 18)
 
 	/* Enums: */
 		/** Enum for possible Class, Subclass and Protocol values of device and interface descriptors relating to the CCID
@@ -117,26 +132,6 @@
 			CCID_CSCP_NoSpecificProtocol     = 0x00, /**< Descriptor Protocol value indicating that the device or interface
 			                                         *   belongs to no specific protocol of the CCID class.
 			                                         */
-		};
-
-		enum CCID_Descriptor_Features_t
-		{
-			CCID_Descriptor_Features_NoSpecialCharacteristics			= 0,
-			CCID_Descriptor_Features_AutoConfigBasedOnATR				= (1 << 1),
-			CCID_Descriptor_Features_ICCAutoActivatesOnInserting		= (1 << 2),
-			CCID_Descriptor_Features_ICCAutoVoltageSelection			= (1 << 3),
-			CCID_Descriptor_Features_ICCAutoClockFrequencyChange		= (1 << 4),
-			CCID_Descriptor_Features_AutoBaudRate						= (1 << 5),
-			CCID_Descriptor_Features_AutoParameterNegotiation			= (1 << 6),
-			CCID_Descriptor_Features_AutoPPS							= (1 << 7),
-			CCID_Descriptor_Features_CanSetICCClockStopMode				= (1 << 8),
-			CCID_Descriptor_Features_NADValueOtherThanZeroAcceptable	= (1 << 9),
-			CCID_Descriptor_Features_AutomaticIFSDExchangeAsFirst		= (1 << 10),
-
-			CCID_Descriptor_Features_TPDULevelExchange					= (1 << 16),
-			CCID_Descriptor_Features_ShortApduLevelExchange				= (1 << 17),
-			CCID_Descriptor_Features_ShortExtendedApduLevelExchange		= (1 << 18),
-
 		};
 
 		/** Enum for possible bulk messages between PC and Reader */
