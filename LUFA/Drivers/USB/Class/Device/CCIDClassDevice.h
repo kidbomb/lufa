@@ -73,6 +73,7 @@
 					uint8_t TotalSlots; /**< Total of slots no this device. */
 					USB_Endpoint_Table_t DataINEndpoint; /**< Data IN endpoint configuration table. */
 					USB_Endpoint_Table_t DataOUTEndpoint; /**< Data OUT endpoint configuration table. */
+					USB_Endpoint_Table_t InterruptInEndpoint; /**< Interrupt IN endpoint configuration table. */
 				} Config; /**< Config data for the USB class interface within the device. All elements in this section
 									 *	 <b>must</b> be set or the interface will fail to enumerate and operate correctly.
 									 */
@@ -80,6 +81,7 @@
 				{
 					bool Aborted; // If hosts started an abort procedd
 					uint8_t AbortedSeq; //sequence number for the abort process
+					uint8_t SlotICC[0];
 				} State;
 			} USB_ClassInfo_CCID_Device_t;
 

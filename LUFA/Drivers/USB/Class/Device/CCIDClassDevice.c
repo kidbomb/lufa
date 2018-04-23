@@ -37,8 +37,35 @@
 #define	__INCLUDE_FROM_CCID_DEVICE_C
 #include "CCIDClassDevice.h"
 
+uint8_t BlockBuffer[0x20];
+
 bool CCID_CheckStatusNoError(int status) {
 	return (status && 0xC0) == 0x0;
+}
+
+uint8_t CCID_GetSlotICCState(uint8_t slot, bool IsCardPresent)
+{
+	uint8_t SlotICCState = (1 << 1) | (IsCardPresent << 0);
+	return (SlotICCState << (slot * 2));
+}
+
+uint8_t CCID_SetSlotICCState(USB_ClassInfo_CCID_Device_t* const CCIDInterfaceInfo, uint8_t slot, bool IsCardPresent)
+{
+	uint8_t index = (slot/4) -1;
+	CCIDInterfaceInfo->Status.SlotICC[index] = CCID_GetSlotICCState(slot, IsCardPresent);
+}
+
+bool CCID_Device_Supports_Interrupt(USB_ClassInfo_CCID_Device_t* const CCIDInterfaceInfo)
+{
+	return (CCIDInterfaceInfo->Config.InterruptInEndpoint.Address > 0) 
+	&& (CCIDInterfaceInfo->Config.InterruptInEndpoint.Size > 0) 
+	&& (CCIDInterfaceInfo->Config.InterruptInEndpoint.Banks > 0);
+}
+
+void CCID_ChangeCardState()
+{
+	CardStateChanged = true;
+	IsCardPresent = !IsCardPresent;
 }
 
 void CCID_Device_ProcessControlRequest(USB_ClassInfo_CCID_Device_t* const CCIDInterfaceInfo)
@@ -113,25 +140,63 @@ bool CCID_Device_ConfigureEndpoints(USB_ClassInfo_CCID_Device_t* const CCIDInter
 	CCIDInterfaceInfo->Config.DataINEndpoint.Type	= EP_TYPE_BULK;
 	CCIDInterfaceInfo->Config.DataOUTEndpoint.Type = EP_TYPE_BULK;
 
+	if(CCID_Device_Supports_Interrupt(CCIDInterfaceInfo))
+	{
+		CCIDInterfaceInfo->Config.InterruptInEndpoint.Type = EP_TYPE_INTERRUPT;
+	}
+
+
 	if (!(Endpoint_ConfigureEndpointTable(&CCIDInterfaceInfo->Config.DataINEndpoint, 1)))
 		return false;
 
 	if (!(Endpoint_ConfigureEndpointTable(&CCIDInterfaceInfo->Config.DataOUTEndpoint, 1)))
 		return false;
 
+	if(CCID_Device_Supports_Interrupt(CCIDInterfaceInfo) && !(Endpoint_ConfigureEndpointTable(&CCIDInterfaceInfo->Config.InterruptInEndpoint, 1)))
+		return false;
+
 	return true;
+}
+
+void CCID_Device_Initialize(USB_ClassInfo_CCID_Device_t* const CCIDInterfaceInfo)
+{
+	//or memset to zero
+	CCIDInterfaceInfo->State.Aborted = false;
+	CCIDInterfaceInfo->State.AbortedSeq = -1;
+
+	for(uint8_t i = 0; i < CCIDInterfaceInfo->Config.TotalSlots / 4; i ++)
+	{
+		CCIDInterfaceInfo->State.SlotICC[i] = 0; 
+	}
 }
 
 void CCID_Device_USBTask(USB_ClassInfo_CCID_Device_t* const CCIDInterfaceInfo) {
 
-	Endpoint_SelectEndpoint(CCIDInterfaceInfo->Config.DataOUTEndpoint.Address);
+	if(CCID_Device_Supports_Interrupt(CCIDInterfaceInfo)) {
+		
+		Endpoint_SelectEndpoint(CCIDInterfaceInfo->Config.InterruptInEndpoint.Address);
 
-	uint8_t BlockBuffer[0x20];
-	CCIDInterfaceInfo->State.Aborted = false;
-	CCIDInterfaceInfo->State.AbortedSeq = -1;
+		if(CardStateChanged && Endpoint_IsReadWriteAllowed())
+		{
+			CardStateChanged = false;	
 
-	if (Endpoint_IsOUTReceived())
+			USB_CCID_RDR_to_PC_NotifySlotChange_t* Notification = (USB_CCID_RDR_to_PC_NotifySlotChange_t) &BlockBuffer;
+			Notification->MessageType = CCID_RDR_to_PC_NotifySlotChange;
+
+			for(uint8_t i = 0; i < CCIDInterfaceInfo->Config.TotalSlots / 4; i ++) //each 2 bits is a slot
+			{
+				Notification->SlotICCState[i] = CCIDInterfaceInfo->State.SlotICC[i]; 
+			}
+
+			Endpoint_Write_Stream_LE(Notification, sizeof(USB_CCID_RDR_to_PC_NotifySlotChange_t) + sizeof(uint8_t), NULL);
+			Endpoint_ClearIN();
+		}
+	}
+	else if (Endpoint_IsOUTReceived())
 	{
+
+		Endpoint_SelectEndpoint(CCIDInterfaceInfo->Config.DataOUTEndpoint.Address);
+
 		USB_CCID_BulkMessage_Header_t CCIDHeader;
 		CCIDHeader.MessageType = Endpoint_Read_8();
 		CCIDHeader.Length			= Endpoint_Read_32_LE();
@@ -300,7 +365,7 @@ void CCID_Device_USBTask(USB_ClassInfo_CCID_Device_t* const CCIDInterfaceInfo) {
 				Endpoint_ClearIN();
 				break;
 			}
-			default:
+			default: //TODO
 			{
 				memset(BlockBuffer, 0x00, sizeof(BlockBuffer));
 

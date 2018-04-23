@@ -258,6 +258,12 @@
 			uint32_t DataRate;
 		} ATTR_PACKED USB_CCID_RDR_to_PC_DataRateAndClockFrequency_t;
 
+		typedef struct
+		{
+			uint8_t	MessageType;
+			uint8_t SlotICCState[0];
+		} ATTR_PACKED USB_CCID_RDR_to_PC_NotifySlotChange_t;
+
 	/* Disable C linkage for C++ Compilers: */
 		#if defined(__cplusplus)
 			}
