@@ -52,6 +52,8 @@
 
 static bool    Aborted;
 static uint8_t AbortedSeq;
+static USB_CCID_ProtocolData_T0_t ProtocolData;
+
 
 
 /** Main program entry point. This routine configures the hardware required by the application, then
@@ -59,6 +61,12 @@ static uint8_t AbortedSeq;
  */
 int main(void)
 {
+	ProtocolData.FindexDindex = 0x11;
+	ProtocolData.TCCKST0 = 0x00;
+	ProtocolData.GuardTimeT0 = 0x00;
+	ProtocolData.WaitingIntegerT0 = 0x0A;
+	ProtocolData.ClockStop = 0x00;
+
 	SetupHardware();
 
 	LEDs_SetAllLEDs(LEDMASK_USB_NOTREADY);
@@ -203,7 +211,9 @@ uint8_t CCID_IccPowerOn(uint8_t slot,
 {
 	if (slot == 0)
 	{
-		Iso7816_CreateSimpleAtr(atr, atrLength);
+		uint8_t historicalBytes[14]   = "LUFA CCID Demo"; // Must be equal or less than 15
+		uint8_t historicalBytesLength = sizeof(historicalBytes);
+		ISO7816_CreateAtr(atr, atrLength, historicalBytes, historicalBytesLength);
 
 		*error = CCID_ERROR_NO_ERROR;
 		return CCID_COMMANDSTATUS_PROCESSEDWITHOUTERROR | CCID_ICCSTATUS_PRESENTANDACTIVE;
@@ -282,11 +292,17 @@ uint8_t CCID_XfrBlock(uint8_t slot,
 {
 	if (slot == 0)
 	{
-		uint8_t okResponse[2] = {0x90, 0x00};
-		memcpy(sendBuffer, okResponse, sizeof(okResponse));
-		*sentBufferSize = sizeof(okResponse);
-
 		*error = CCID_ERROR_NO_ERROR;
+
+		ISO7816_DedicatedFile mf;
+		mf.FileId[0] = 0x3F;
+		mf.FileId[1] = 0x00;
+
+		uint16_t Status = ISO7816_HandleCommand(receivedBuffer, receivedBufferSize, sendBuffer, sentBufferSize, &mf);
+		switch(Status)
+		{
+			//TODO
+		}
 		return CCID_COMMANDSTATUS_PROCESSEDWITHOUTERROR | CCID_ICCSTATUS_NOICCPRESENT;
 	}
 	else
@@ -452,10 +468,22 @@ void CCID_Task(void)
 
 				//Status = CCID_SetParameters_T0(CCIDHeader.Slot, &Error, &ResponseParametersStatus->ProtocolNum, &ResponseParametersStatus->T0);
 				//mimick response
-				ResponseParametersStatus->ProtocolNum = ProtocolNum;
-				memcpy(&ResponseParametersStatus->ProtocolData, RequestBuffer, CCIDHeader.Length * sizeof(uint8_t));
-				ResponseParametersStatus->CCIDHeader.Length = CCIDHeader.Length;
-				Status = CCID_COMMANDSTATUS_PROCESSEDWITHOUTERROR | CCID_ICCSTATUS_PRESENTANDACTIVE;
+				if(ProtocolNum == CCID_PROTOCOLNUM_T0)
+				{
+					
+					//set parameters
+					memcpy(&ProtocolData, RequestBuffer, sizeof(USB_CCID_ProtocolData_T0_t));
+
+					ResponseParametersStatus->ProtocolNum = ProtocolNum;
+					ResponseParametersStatus->CCIDHeader.Length = sizeof(USB_CCID_ProtocolData_T0_t);
+					memcpy(&ResponseParametersStatus->ProtocolData, &ProtocolData, sizeof(USB_CCID_ProtocolData_T0_t));
+					
+					Status = CCID_COMMANDSTATUS_PROCESSEDWITHOUTERROR | CCID_ICCSTATUS_PRESENTANDACTIVE;
+				}
+				else
+				{
+					//TODO
+				}
 
 				ResponseParametersStatus->Status = Status;
 				ResponseParametersStatus->Error  = Error;
@@ -463,7 +491,7 @@ void CCID_Task(void)
 				Endpoint_ClearOUT();
 
 				Endpoint_SelectEndpoint(CCID_IN_EPADDR);
-				Endpoint_Write_Stream_LE(ResponseParametersStatus, sizeof(USB_CCID_BulkMessage_Header_t) + sizeof(uint8_t) * 3, NULL);
+				Endpoint_Write_Stream_LE(&ResponseParametersStatus, sizeof(USB_CCID_BulkMessage_Header_t) + sizeof(uint8_t) * 2 + ResponseParametersStatus->CCIDHeader.Length , NULL);
 				Endpoint_ClearIN();
 				break;
 			}
@@ -486,7 +514,7 @@ void CCID_Task(void)
 
 				ResponseBlock->ChainParam = 0;
 
-				Status = CCID_XfrBlock(CCIDHeader.Slot, RequestBuffer, CCIDHeader.Length, &ResponseBlock->Data, &ResponseDataLength, &Error);
+				Status = CCID_XfrBlock(CCIDHeader.Slot, RequestBuffer, CCIDHeader.Length, (uint8_t*) &ResponseBlock->Data, &ResponseDataLength, &Error);
 
 				if (CCID_CheckStatusNoError(Status) && !Aborted)
 				{

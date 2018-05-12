@@ -160,12 +160,14 @@ void EVENT_USB_Device_ControlRequest(void)
 uint8_t CALLBACK_CCID_IccPowerOn(USB_ClassInfo_CCID_Device_t* const CCIDInterfaceInfo,
                                  uint8_t slot,
 								 uint8_t* const atr,
-								 uint8_t* const attrSize,
+								 uint8_t* const atrLength,
 								 uint8_t* const error)
 {
 	if (slot < CCID_Interface.Config.TotalSlots)
 	{
-		Iso7816_CreateSimpleAtr(atr, attrSize);
+		uint8_t historicalBytes[14]   = "LUFA CCID Demo"; // Must be equal or less than 15
+		uint8_t historicalBytesLength = sizeof(historicalBytes);
+		Iso7816_CreateAtr(atr, atrLength, historicalBytes, historicalBytesLength);
 		*error = CCID_ERROR_NO_ERROR;
 		return CCID_COMMANDSTATUS_PROCESSEDWITHOUTERROR | CCID_ICCSTATUS_PRESENTANDACTIVE;
 	}

@@ -141,11 +141,64 @@ function startTest()
             read(ccidInterface, 10, callback);
         },
         function(callback) {
-            write(ccidInterface, new Buffer(XfrBlockMessage(0, 4, [0x0, 0xFD, 0x0, 0x0, 0x0])), callback);
+            //ISO 7816 test: unknown CLA (0xFF)
+            write(ccidInterface, new Buffer(XfrBlockMessage(0, 4, [0xFF, 0x00, 0x0, 0x0, 0x0])), callback);
         },
         function(callback) {
+            //must return 80 02 00 00 00 00 04 02 80 00 6e 00
+            //80: Status
+            //00: Error
+            //6e 00: Class not supported error
             read(ccidInterface, 10 + 2, callback);
-        }
+         },
+         function(callback) {
+            //ISO 7816 test: unknown INS (0xFF)
+            write(ccidInterface, new Buffer(XfrBlockMessage(0, 5, [0x0, 0xFF, 0x0, 0x0, 0x0])), callback);
+        },
+        function(callback) {
+            //must return 80 02 00 00 00 00 04 02 80 00 6d 00
+            //80: Status
+            //00: Error
+            //6e 00: Instruction not supported error
+            read(ccidInterface, 10 + 2, callback);
+         },
+        function(callback) {
+            //ISO 7816 test: Select MF (0xA4)
+            write(ccidInterface, new Buffer(XfrBlockMessage(0, 6, [0x0, 0xA4, 0x0, 0x0])), callback);
+        },
+        function(callback) {
+            //must return 80 0b 00 00 00 00 06 02 80 00 6f 07 82 01 38 83 02 3f 00 90 00
+            //80: Status
+            //00: Error
+
+            //new byte[] {(byte)0x6F, (byte)0x07, // FCI, Length 7.
+            //(byte)0x82, (byte)0x01, (byte)0x38, // File descriptor byte.
+            //  bin(00111000) = 0x38 (DF) (file descriptor byte)
+            //(byte)0x83, (byte)0x02, (byte)0x3F, (byte)0x00
+            // 0x84 - file name
+
+            // 90 00: no error
+            read(ccidInterface, 31, callback);
+         },
+        function(callback) {
+            //ISO 7816 test: Select MF (0xA4)
+            //MF has file if = 0x3f00
+            write(ccidInterface, new Buffer(XfrBlockMessage(0, 6, [0x0, 0xA4, 0x0, 0x0, 0x02, 0x3F, 0x00])), callback);
+        },
+        function(callback) {
+            //must return 80 0b 00 00 00 00 06 02 80 00 6f 07 82 01 38 83 02 3f 00 90 00
+            //80: Status
+            //00: Error
+
+            //new byte[] {(byte)0x6F, (byte)0x07, // FCI, Length 7.
+            //(byte)0x82, (byte)0x01, (byte)0x38, // File descriptor byte.
+            //  bin(00111000) = 0x38 (DF) (file descriptor byte)
+            //(byte)0x83, (byte)0x02, (byte)0x3F, (byte)0x00
+            // 0x84 - file name
+            
+            // 90 00: no error
+            read(ccidInterface, 31, callback);
+         }
         ]);
 }
 

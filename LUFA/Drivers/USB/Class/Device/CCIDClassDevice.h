@@ -84,6 +84,7 @@
 				} State; /**< State data for the USB class interface within the device. All elements in this section
 				          *   are reset to their defaults when the interface is enumerated.
 				          */
+				USB_CCID_ProtocolData_T0_t ProtocolData;
 			} USB_ClassInfo_CCID_Device_t;
 
 	/* Function Prototypes: */
