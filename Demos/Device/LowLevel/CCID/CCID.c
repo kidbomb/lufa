@@ -252,6 +252,23 @@ uint8_t CCID_GetSlotStatus(uint8_t slot,
 	}
 }
 
+uint8_t CCID_SetParameters_T0(uint8_t slot,
+                           uint8_t* const error,
+                           uint8_t* ProtocolNum,
+                           USB_CCID_ProtocolData_T0_t* t0)
+{
+	if (slot == 0)
+	{
+		*error = CCID_ERROR_NO_ERROR;
+		return CCID_COMMANDSTATUS_PROCESSEDWITHOUTERROR | CCID_ICCSTATUS_PRESENTANDACTIVE;
+	}
+	else
+	{
+		*error = CCID_ERROR_SLOT_NOT_FOUND;
+		return CCID_COMMANDSTATUS_FAILED | CCID_ICCSTATUS_NOICCPRESENT;
+	}
+}
+
 /** Event handler for the CCID_PC_to_RDR_XfrBlock. This message is sent to the device
  *  whenever an application at the host wants to send a block of bytes to the device
  *  THe device reply back with an array of bytes
@@ -421,7 +438,35 @@ void CCID_Task(void)
 				Endpoint_ClearIN();
 				break;
 			}
+			case CCID_PC_to_RDR_SetParameters:
+			{
+				uint8_t ProtocolNum = Endpoint_Read_8();
 
+				Endpoint_Read_Stream_LE(RequestBuffer, CCIDHeader.Length * sizeof(uint8_t), NULL);
+
+				USB_CCID_RDR_to_PC_Parameters_t* ResponseParametersStatus = (USB_CCID_RDR_to_PC_Parameters_t*)&ResponseBuffer;
+				ResponseParametersStatus->CCIDHeader.MessageType = CCID_RDR_to_PC_Parameters;
+				ResponseParametersStatus->CCIDHeader.Length      = 0;
+				ResponseParametersStatus->CCIDHeader.Slot        = CCIDHeader.Slot;
+				ResponseParametersStatus->CCIDHeader.Seq         = CCIDHeader.Seq;
+
+				//Status = CCID_SetParameters_T0(CCIDHeader.Slot, &Error, &ResponseParametersStatus->ProtocolNum, &ResponseParametersStatus->T0);
+				//mimick response
+				ResponseParametersStatus->ProtocolNum = ProtocolNum;
+				memcpy(&ResponseParametersStatus->ProtocolData, RequestBuffer, CCIDHeader.Length * sizeof(uint8_t));
+				ResponseParametersStatus->CCIDHeader.Length = CCIDHeader.Length;
+				Status = CCID_COMMANDSTATUS_PROCESSEDWITHOUTERROR | CCID_ICCSTATUS_PRESENTANDACTIVE;
+
+				ResponseParametersStatus->Status = Status;
+				ResponseParametersStatus->Error  = Error;
+
+				Endpoint_ClearOUT();
+
+				Endpoint_SelectEndpoint(CCID_IN_EPADDR);
+				Endpoint_Write_Stream_LE(ResponseParametersStatus, sizeof(USB_CCID_BulkMessage_Header_t) + sizeof(uint8_t) * 3, NULL);
+				Endpoint_ClearIN();
+				break;
+			}
 			case CCID_PC_to_RDR_XfrBlock:
 			{
 				uint8_t  Bwi            = Endpoint_Read_8();
